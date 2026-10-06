@@ -20,7 +20,7 @@ backend/
     recorder.py               # Normal-click DOM recorder
     reporting.py              # Excel report generation
     runner.py                 # Controlled concurrent execution.
-
+```
 ## 2. One-time installation
 
 Open PowerShell in the repository folder and install the Python packages:

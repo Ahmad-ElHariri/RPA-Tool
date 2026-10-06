@@ -1,7 +1,7 @@
 # Airtable Interface Automation
 
-Python and Playwright automation for inspecting Airtable pages and applying
-verified workflows through an authenticated Chrome profile.
+This tool records normal clicks in Airtable and runs verified automation
+workflows through a separate, persistent Chrome profile.
 
 ## 1. Project structure
 
@@ -19,41 +19,86 @@ backend/
     old_core_global_changes.py # Preserved legacy workflows
     recorder.py               # Normal-click DOM recorder
     reporting.py              # Excel report generation
-    runner.py                 # Controlled concurrent execution
-```
+    runner.py                 # Controlled concurrent execution.
 
-Runtime folders such as `chrome-profile/`, `inspections/`, `reports/`, caches,
-and failure screenshots are not source code.
+## 2. One-time installation
 
-## 2. Setup
-
-Python 3.11 or newer and Google Chrome are recommended:
+Open PowerShell in the repository folder and install the Python packages:
 
 ```powershell
 python -m pip install "playwright>=1.45,<2.0" "openpyxl>=3.1,<4.0" tzdata
 ```
 
-Configuration belongs in `.env`:
+The default settings work without a `.env` file. Runtime folders such as
+`chrome-profile`, `inspections`, and `reports` are created automatically and
+must not be committed.
 
-```text
-APPS_FILE=apps.json
-CONCURRENCY=3
-CHROME_PROFILE_DIR=chrome-profile
-INSPECTIONS_DIR=inspections
-REPORTS_DIR=reports
-SCREENSHOTS_DIR=backend/screenshots
-BROWSER_TIMEOUT_MS=15000
-NAVIGATION_TIMEOUT_MS=45000
-HEADLESS=false
-SLOW_MO_MS=0
+## 3. First Airtable login
+
+The automation uses its own Chrome profile. Initialize it once:
+
+1. Double-click `launcher.pyw`.
+2. Select **Inspect**.
+3. Paste one authorized Airtable page URL into **Airtable URL**.
+4. Click **Inspect page**.
+5. In the Chrome window that opens, sign in to Airtable and wait for the page
+   to load completely.
+6. Close the entire automation Chrome window.
+
+The Airtable session is now saved locally in `chrome-profile`. Never copy,
+share, or commit this folder.
+
+If double-clicking the launcher does not work, open PowerShell in the repository
+folder and use this troubleshooting command:
+
+```powershell
+python launcher.pyw
 ```
 
-The persistent Chrome profile keeps the manual Airtable login. Do not run two
-project processes against that profile simultaneously.
+## 4. Inspect a workflow with the launcher
 
-## 3. App inventory
+Inspect before creating a new Airtable workflow:
 
-`apps.json` contains the apps used by named and all-app runs:
+1. Double-click `launcher.pyw` and select **Inspect**.
+2. Paste the exact Airtable URL to inspect.
+3. Click **Inspect page**.
+4. In Chrome, perform the complete workflow using normal clicks and in the
+   exact intended order. Include intermediate selections that reveal later
+   controls.
+5. Wait briefly after the final click, then close the entire Chrome window.
+6. Return to the launcher and click **Open inspection**.
+
+The JSON recording is saved in `inspections`. It records click and DOM evidence;
+it is not an automatically replayable workflow. Use it to implement reliable
+semantic selectors and final-state checks.
+
+## 5. Run a function with the launcher
+
+Only workflows registered in `functions.py` appear in the launcher.
+
+1. Double-click `launcher.pyw` and select **Run**.
+2. Choose the function from **Function**.
+3. Choose `apps.json` or `15-PH-apps.json` from **App file**.
+4. Select the target apps. All apps are selected by default, so for a first
+   trial click **Clear** and select one explicitly authorized app.
+5. Click **Run workflow** and leave the launcher open until it finishes.
+6. Review the logs, then click **Open report** and check every result.
+
+Use Ctrl-click to select multiple apps, or **Select all** to restore the full
+selection. Each run creates one Excel report in `reports`. Failures may also
+create a screenshot in `backend/screenshots`.
+
+Before a broader write run, always test the workflow on the smallest explicit
+target and review its report and any failure screenshot.
+
+## 6. App inventories
+
+The launcher supports these inventories:
+
+- `apps.json`: the active app list.
+- `15-PH-apps.json`: the alternate 15-app list.
+
+Each file contains unique app names and Airtable URLs:
 
 ```json
 [
@@ -64,119 +109,44 @@ project processes against that profile simultaneously.
 ]
 ```
 
-Names and URLs must be unique. The launcher can switch between `apps.json` and
-`15-PH-apps.json`. For terminal commands, select the alternate inventory by
-setting `APPS_FILE=15-PH-apps.json` in `.env` or for that process.
+## 7. Terminal-only operations
 
-## 4. Record a workflow
-
-Start the normal-click DOM recorder:
+The launcher intentionally excludes preserved legacy workflows. List and run
+them from PowerShell only:
 
 ```powershell
-python main.py inspect --url "https://airtable.com/app.../..." --label "task-name"
+python main.py list-old-actions
+python main.py run-old hide_suggested_metric --url "https://airtable.com/app.../..."
 ```
 
-You can also inspect the first configured app or a named app:
+The terminal is also required to run a current function on one explicit URL or
+to run several current functions serially:
 
 ```powershell
-python main.py inspect
-python main.py inspect --app "Market A" --label "task-name"
+python main.py run function_name --url "https://airtable.com/app.../..."
+python main.py run first_function second_function --url "https://airtable.com/app.../..."
 ```
 
-Chrome opens with the saved profile. Perform the complete workflow normally,
-wait briefly after the final click, and close Chrome. The JSON file under
-`inspections/` records, for each click:
-
-- the event target and nearest actionable control;
-- the containing region and ancestor path;
-- pointer coordinates and the elements under the pointer;
-- attributes, text, role, and relevant state;
-- visible menus, listboxes, or dialogs after the click;
-- the page and frame URL.
-
-The recording is inspection evidence, not an automatic replay script. To create
-a production workflow, provide the recording plus the function name, required
-inputs, and expected final state. The implementation converts the evidence into
-semantic locators and adds state checks, verification, and reporting.
-
-There is no ALT-click or snapshot inspection mode.
-
-## 5. Run workflows
-
-List available apps, new functions, and preserved old functions:
+Optional inventory and registry checks are:
 
 ```powershell
 python main.py list-apps
 python main.py list-actions
-python main.py list-old-actions
 ```
 
-Run a new function on one explicit URL, selected configured apps, or every app:
+## 8. Adding a new function
 
-```powershell
-python main.py run new_function --url "https://airtable.com/app.../..."
-python main.py run new_function --app "Market A" --app "Market B"
-python main.py run new_function
-```
-
-Multiple functions run serially for each app:
-
-```powershell
-python main.py run first_function second_function
-```
-
-Old functions are excluded from the launcher and the normal `run` command. Run
-one manually from the terminal with the explicit legacy command:
-
-```powershell
-python main.py run-old hide_suggested_metric --url "https://airtable.com/app.../..."
-```
-
-Apps may run concurrently, controlled by `CONCURRENCY` or `--concurrency`. Each
-app uses one page and never executes two write workflows simultaneously.
-
-Every run creates one `.xlsx` report in `reports/`. Failed workflows include
-diagnostic information and may save a screenshot under `backend/screenshots/`.
-
-## 6. Preserved old workflows
-
-These remain in `backend/old_core_global_changes.py` and are available only
-through `list-old-actions` and `run-old`:
-
-- `smart_import_core` configures Smart Import fields, linked tables, and inline
-  record editing.
-- `remove_publicis_media_team_signature` removes the exact final-line signature
-  from the two configured approval-email actions.
-- `hide_suggested_metric` hides `Suggested Metric` in both configured Flow Core
-  media-plan sections and verifies persistence after reload.
-- `hide_delete_button` applies the inspected `Campaign Status is Pre-Briefing`
-  visibility rule to `Delete Line Item` and verifies it after reload.
-- `change_request_add_filter` adds the two inspected QA Review status conditions
-  to their numbered groups and verifies them after reload.
-
-## 7. Desktop launcher
-
-Double-click `launcher.pyw`, or run:
-
-```powershell
-python launcher.pyw
-```
-
-Choose **Inspect** to record one URL. Choose **Run**, select `apps.json` or
-`15-PH-apps.json`, then select the displayed app names and URLs. Every app is
-selected by default; use Ctrl-click, **Select all**, or **Clear** to change the
-selection. The launcher streams terminal output and enables **Open inspection**
-or **Open report** when the corresponding file exists.
-
-## 8. Adding a workflow
-
-Add only the public registered function to root `functions.py`. Put reusable or
-lengthy implementation details in `backend/helpers.py`:
+Keep only the public registered workflow in `functions.py`. Put reusable or
+lengthy helpers in `backend/helpers.py`. Do not modify
+`backend/old_core_global_changes.py` unless legacy maintenance is explicitly
+requested.
 
 ```python
+from playwright.async_api import Page
+
 from backend.airtable_actions import ActionReport, _register
 from backend.config import Settings
-from playwright.async_api import Page
+
 
 
 @_register(writes_data=True)
@@ -184,12 +154,17 @@ async def descriptive_action(page: Page, settings: Settings) -> ActionReport:
     ...
 ```
 
-Use **find -> validate -> act -> verify -> report**. Reject ambiguous targets,
-skip already-correct state, and verify persistence when appropriate. The
-launcher automatically displays only registered functions from `functions.py`.
+Build every workflow around **find -> validate -> act -> verify -> report**.
+Reject ambiguous targets, skip an already-correct state, and verify persistence
+after reload when appropriate. Restart the launcher after changing registered
+functions so its function list refreshes.
 
-## 9. Data safety
+## 9. Safety rules
 
-The Chrome profile contains authenticated session data. Inspection JSON,
-screenshots, and reports may contain Airtable content. Do not copy or share these
-artifacts. Workflows should be trialed on one authorized URL before broader runs.
+- Run only against authorized Airtable apps.
+- Never run two launcher or command-line operations at the same time; they use
+  the same Chrome profile.
+- Do not open the automation `chrome-profile` with a separate Chrome process.
+- Do not share or commit `.env`, `chrome-profile`, inspections, reports, caches,
+  or failure screenshots. They may contain login or Airtable data.
+- Treat any unprocessed or unverified target as a failure.

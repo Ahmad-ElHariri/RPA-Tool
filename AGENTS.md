@@ -1,106 +1,158 @@
-# Building browser automation
+# AI Development Guide
 
-## Inspection workflow
+This is the repository-wide working agreement for Codex and other coding agents.
+Keep the conventional `AGENTS.md` filename so supported tools discover it automatically.
+Keep durable project rules here, usage instructions in the numbered README, and
+workflow-specific requirements beside their implementation and in project memory.
 
-Use the normal-click DOM recorder before designing a new Airtable workflow:
+## 1. Roles, scope, and evidence
+
+- The user performs inspections: they open Inspect, demonstrate the complete
+  workflow with normal clicks, and close the automation Chrome window.
+- Codex reviews the user's saved recording and requirements, implements the
+  automation, and validates only the targets and operations already authorized.
+  Codex must not perform or invent the user's inspection. Launch the recorder
+  on the user's behalf only when explicitly requested.
+- Existing code, fixtures, documentation, memory, and observed defaults provide
+  context; they do not authorize targets, writes, retries, recovery, or deletion.
+- Resolve meaningful missing requirements before implementing dependent behavior.
+  Continue independent authorized work while awaiting clarification; silence is
+  not approval. Routine implementation choices do not require renewed permission.
+- Preserve behavior during naming, structure, and UI refactors. Review every new
+  branch against user instructions or current evidence. Report uncertainty clearly.
+
+## 2. Project map and local commands
+
+- `Airtable_RPA.pyw`: desktop Inspect/Run application.
+- `Backend/cli.py`: CLI parsing and dispatch; run it as `python -B -m Backend.cli`.
+- `Backend/workflows/__init__.py`: compact current workflow registrations.
+- `Backend/workflows/`: one implementation module per current workflow.
+- `Backend/helpers.py`: controls, navigation, and validation shared by workflows.
+- Other `Backend/` modules own configuration, browser lifecycle, recording,
+  registration, execution, and reporting.
+- Preserve the legacy module's contents unchanged unless legacy maintenance is
+  explicitly authorized. Legacy workflows remain terminal-only.
+- `Apps.json`: separate `plus` (default) and `core` inventories. Keep their names,
+  URLs, ordering, selection behavior, and configured overrides intact.
+- `Memory/`: the searchable Excel history and its maintenance tool.
+- `Artifacts/`: local inspections, reports, logs, and failure screenshots.
+- `chrome-profile/`: the user's persistent local login/session; preserve it.
 
 ```powershell
-python main.py inspect --url "https://airtable.com/app.../..." --label "task-name"
+python -B Airtable_RPA.pyw
+python -B -m Backend.cli list-actions
+python -B -m Backend.cli list-old-actions
+python -B -m Backend.cli --apps-group core list-apps
+python -B Memory/memory.py search "<task, page, helper, or error>"
 ```
 
-The user performs the complete workflow normally and then closes Chrome. Read the
-resulting JSON in `inspections/` in click order. Use its actionable element,
-region, ancestors, pointer stack, state, frame, and post-click overlays to build
-semantic Playwright locators. Screenshots may provide visual context, but are not
-the selector source. There is no ALT-click or snapshot inspection mode.
+Use one project browser operation at a time: the CLI and desktop app share a
+Chrome profile. Keep setup dependencies inline in README; do not add dependency
+files, editor configuration, skills, or additional infrastructure without a need
+within the authorized task.
 
-Recordings describe clicks; production workflows must still account for current
-state. Prefer roles, accessible names, stable IDs, `data-testid`, exact text, and
-scoped containing regions. Avoid coordinates, generated CSS classes, positional
-selection, and unconditional `.first()`, `.last()`, or `.nth()`.
+## 3. Read recordings before implementing workflows
 
-## Code organization
+- Search memory first, then read the complete relevant JSON recording in
+  `Artifacts/inspections/` in click order. A recording demonstrates steps;
+  its example values do not restrict other apps or authorize extra behavior.
+- Use actionable elements, regions, ancestors, pointer stacks, frames, state,
+  and post-click overlays to construct semantic Playwright locators. Screenshots
+  provide context rather than selectors. There is no ALT-click or snapshot mode.
+- Preserve demonstrated intermediate selections, fields, and final text. Do not
+  substitute a shortcut or validation for a required recorded action.
+- Prefer roles, accessible names, stable IDs, test IDs, exact text, and scoped
+  regions. Reject ambiguous targets; avoid coordinates, generated classes, and
+  arbitrary positional selection. Request missing DOM evidence when necessary.
+- Keep live locators across navigation and rerenders. Reacquire changed controls;
+  account for collapsed, delayed, virtualized, off-screen, and framed content.
 
-- Keep only new public registered workflows in root `functions.py`.
-- Put helpers for new workflows in `backend/helpers.py`; do not add helpers to
-  `functions.py`.
-- Preserve old workflows in `backend/old_core_global_changes.py`. Do not modify
-  them unless the user explicitly requests legacy maintenance.
-- Keep shared browser, configuration, recorder, runner, reporting, and registry
-  code in `backend/`.
-- Keep CLI parsing and dispatch in root `main.py`.
-- Keep the simple Inspect/Run desktop UI in root `launcher.pyw`.
-- Keep the launcher Run inventory limited to `apps.json` and `15-PH-apps.json`;
-  show app names with URLs and default multi-selection to all entries.
-- Register workflows with `backend.airtable_actions._register`. The launcher and
-  normal `run` command discover only `functions.py`; `run-old` is terminal-only.
-- Keep new code short. Add docstrings and comments only for important phases,
-  state decisions, or non-obvious safety behavior.
-- Keep `functions.py` compact and use comments only for important decisions.
+## 4. Implement and verify observable behavior
 
-## Workflow safety and validation
+- Follow find -> validate -> act -> verify -> report. Check semantic state before
+  changing it. Skip an already-correct state only when the workflow permits it;
+  report the evidence. Preserve explicitly required actions and submissions.
+- Verify the observable result of each action before continuing. A successful
+  click call or `domcontentloaded` does not establish the desired application state.
+  Verify save completion and reload persistence where appropriate.
+- Reuse shared section validation for multi-item work. Validate the entire expected
+  state and retry only unresolved items where retries are already authorized.
+  Never blindly toggle, repeat a submission, or duplicate a partial write.
+- Recover partial work only when uniquely identifiable and explicitly authorized;
+  otherwise report the ambiguity and remaining work.
+- Preserve each workflow's timeout and waiting semantics, selected targets,
+  retry rules, submission counts, and warning/failure classification. Consult its
+  implementation contract and evidence rather than generalizing an exception.
+- A new workflow requires the user's inspection, implementation, an authorized
+  live trial, review/correction, and verified final state. Restate the operation
+  before a write trial and use one explicitly authorized app or URL. Review its
+  report and failure screenshot before broader runs.
+- For structural changes, use focused import, discovery, routing, and artifact
+  checks. Do not perform Airtable writes to validate a refactor or populate memory.
+  Local checks do not establish live workflow success. Report incomplete validation.
+- Keep functions small and responsibilities clear. Use numbered comments for
+  meaningful phases or non-obvious safety decisions. Do not recreate a deleted
+  test suite or add tests that merely restate reversible implementation details.
 
-### Inspection fidelity and testing
+## 5. Reports, diagnostics, and user experience
 
-- Follow the inspected click sequence closely, including intermediate container
-  selections that make later controls available; do not skip recorded clicks
-  merely because a shorter route appears possible.
-- Treat nested controls with the same accessible name as distinct targets. Trace
-  the actionable element, its clickable ancestors, pointer stack, and region to
-  identify whether the recording clicked a small inner control or a large outer
-  wrapper. When this remains ambiguous, request the relevant HTML or screenshot
-  before implementing; screenshots are context, not selector sources.
-- Expect selection to change the DOM (for example, a heading becoming a
-  textarea). Validate the post-click state using the control that exists after
-  the click instead of searching for the element that was replaced.
-- Preserve live Playwright locators across Airtable navigation and loading
-  transitions. Do not retain an ElementHandle for a later click when Airtable may
-  rerender the sidebar or page; validate the locator, then click the locator so
-  Playwright can resolve the current node and retry through transient overlays.
-- Do not infer successful duplication from simultaneous visibility of both
-  copies; off-screen and virtualized sections may not render together. Follow the
-  selected duplicate into its next inspected state and verify the final unique
-  title or setting instead.
-- Recover partial write states only when they are uniquely and explicitly
-  identifiable. Otherwise reject ambiguity rather than creating another copy or
-  repeating a destructive action.
-- Use the exact final text and exact fields demonstrated by the inspection. Do
-  not add an extra rename or setting change merely because an earlier recording
-  appeared to imply one.
-- Test and improve new workflows using the smallest explicit target that covers
-  the changed path. Keep test cycles focused and review the resulting report and
-  failure screenshot before changing selectors.
-- After navigation, save, or reload, wait for a specific expected semantic state
-  rather than treating `domcontentloaded` or the first visible container as
-  completion. Reload persistence checks must allow Airtable's canvas to rerender.
+- For each target in a new workflow, report its before state, actions/skips and
+  reasons, verification evidence, remaining work, and last observed state, URL,
+  and Lebanon timestamp. Include the last observed Airtable status in Excel when
+  available; label unavailable or unobserved state explicitly. Never infer it.
+- Failures identify the target, step, expected versus observed state, clear reason,
+  and unprocessed work. Save full exceptions and artifact paths in text logs,
+  link diagnostics in reports, and capture a failure screenshot when possible.
+- Preserve workflow-specific non-failing warnings and downstream outcomes.
+  These future-workflow requirements do not request retrofitting existing flows.
+- Inspect requires an explicit URL or one explicitly selected saved app. Never
+  choose the first app automatically or introduce a workflow selector for Inspect.
+  Run keeps app/URL columns and defaults to selecting all entries in its inventory.
+- Keep the desktop Logs panel concise while retaining original full diagnostics
+  in saved logs. Filtering must not change results or artifact discovery. Artifact
+  buttons must follow files announced by the current operation.
+- Use the central Lebanon time utility consistently. Inspection, report, and log
+  filenames use `<descriptive-name>  -  MM-DD__HH.MM` with numbered collisions.
+  Preserve the existing failure-screenshot naming format.
 
-Follow **find -> validate -> act -> verify -> report**. Discover all plausible
-candidates, reject ambiguity, skip already-correct state, use normal Playwright
-interactions, and verify the final state. Account for collapsed sections,
-scrolling, virtualized content, frames, duplicate names, delayed rendering, and
-menus or dialogs that may already be open or closed.
+## 6. Memory and knowledge maintenance
 
-For multi-item sections, use `_run_validated_section`: apply the section, validate
-the complete expected state, retry only unresolved items up to the configured
-limit, and stop when the section remains incomplete. Never retry a toggle blindly.
-Verify persistence after reload when appropriate. Report every target and treat
-unprocessed or unverified targets as failures.
+- Before new features, refactors, or workflow corrections, search
+  `Memory/airtable_memory.xlsx` using the memory tool. Follow relevant IDs with
+  `show`, inspect exact callers and linked evidence, and try alternative terms.
+  A top search match is not proof that an old cause applies.
+- Compare reused patterns with current scope and DOM evidence. Distinguish source
+  review, inspection evidence, local checks, and live verification. A successful
+  skip path does not verify a write path; unchanged code does not prove an unchanged UI.
+- After code changes, refresh the catalogue while preserving notes and history.
+  Record investigated symptoms, uncertain or confirmed causes, fixes, scope, and
+  actual verification results. Preserve contradictory findings as separate records.
+- Use `record --file <record.json>` for findings and allowed function metadata.
+  Add evidence before referencing it. Use `revalidated: true` only after reviewing
+  changed code against new evidence; live verification additionally requires a
+  scoped observed live trial and date.
+- Keep workbook IDs, sheet names, row-4 headers, and allowed user notes stable.
+  Existing IDs survive source moves; use Source and Line for current locations.
+  Maintain relocation mappings and recursive package discovery.
+- Close the workbook before updates. Keep original recordings, logs, browser
+  profiles, and secrets outside memory. Do not reconstruct unavailable evidence
+  or imply that memory maintenance is a background monitoring service.
 
-Before a live write trial, restate the intended operation and use one explicitly
-authorized URL or app. Review the Excel report and failure screenshot before any
-broader run. Local browser fixtures and read-only discovery do not count as live
-write validation.
+```powershell
+python -B Memory/memory.py show "<ID>"
+python -B Memory/memory.py refresh
+python -B Memory/memory.py record --file "<record.json>"
+```
 
-## Runtime conventions
+## 7. Data protection and completion
 
-- `apps.json` is the active app inventory unless `.env` sets `APPS_FILE`.
-- Use `backend.config.lebanon_now()` for timestamps.
-- Inspection and report names use
-  `<descriptive-name>  -  MM-DD__HH.MM`, adding a numbered suffix on collision.
-- Failure screenshots remain in `backend/screenshots/` with their existing
-  timestamp format.
-- Runtime artifacts, `.env`, browser profiles, caches, and virtual environments
-  stay outside source control and must not be copied or shared.
-- Keep README sections numbered and setup dependencies inline; do not add a
-  `requirements.txt` unless requested.
-- Do not create VS Code launch configurations unless requested.
+- Keep `Artifacts/`, `.env`, browser profiles, caches, virtual environments, and
+  the memory workbook local and excluded from source control. Do not log secrets
+  or copy/share runtime data and login profiles.
+- Preserve historical reports, recordings, diagnostics, screenshots, profiles,
+  and the memory workbook unless their deletion is explicitly requested. Do not
+  introduce automatic artifact deletion or retention rules.
+- Use `python -B` during development checks to avoid creating bytecode caches.
+- Before finishing, review changes and run focused checks appropriate to scope.
+  Report what changed, what was actually verified, and material limits. Never
+  claim live success from a local fixture or from a click returning successfully.

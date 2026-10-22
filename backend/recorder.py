@@ -3,31 +3,29 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from pathlib import Path
 from typing import Any
 
 from playwright.sync_api import BrowserContext, Error as PlaywrightError, Page
 
-from backend.config import lebanon_now
+from Backend.config import artifact_path, lebanon_now
 
 
 _BINDING = "__rpaSaveClick"
+LOGGER = logging.getLogger(__name__)
 
 
+# 1. Inspection file naming.
 def _path(output_dir: Path, app: str, label: str) -> Path:
     def slug(value: str) -> str:
         return re.sub(r"[^a-zA-Z0-9_-]+", "-", value).strip("-_")[:80] or "page"
 
-    stem = f"{slug(app)}__{slug(label)}__recording  -  {lebanon_now():%m-%d__%H.%M}"
-    path, number = output_dir / f"{stem}.json", 2
-    while path.exists():
-        path = output_dir / f"{stem} ({number}).json"
-        number += 1
-    return path
+    return artifact_path(output_dir, f"{slug(app)}__{slug(label)}__recording", ".json")
 
 
-# Capture the clicked DOM immediately, then collect menus and dialogs after the
+# 2. Capture the clicked DOM immediately, then collect menus and dialogs after the
 # application has had time to react to the click.
 _SCRIPT = r"""
 (() => {
@@ -100,6 +98,7 @@ _SCRIPT = r"""
 """
 
 
+# 3. Persist clicks in their recorded order.
 class ClickRecorder:
     """Save ordered click structures to one JSON file."""
 
@@ -136,6 +135,7 @@ class ClickRecorder:
         self._write()
 
 
+# 4. Install recording across current and future frames.
 def install_recorder(context: BrowserContext, recorder: ClickRecorder) -> None:
     """Install recording in current and future pages and frames."""
     context.expose_binding(_BINDING, recorder.capture)
@@ -149,7 +149,7 @@ def install_recorder(context: BrowserContext, recorder: ClickRecorder) -> None:
 
 
 def wait_for_recording(page: Page) -> None:
-    print("Recorder ready. Click normally, wait briefly, then close Chrome.")
+    LOGGER.info("Recorder ready. Click normally, wait briefly, then close Chrome.")
     while not page.is_closed():
         try:
             page.wait_for_timeout(500)

@@ -11,11 +11,13 @@ from typing import Any
 
 from playwright.async_api import ElementHandle, Error as PlaywrightError, Locator, Page
 
-from backend.config import Settings, lebanon_now
+from Backend.config import Settings, lebanon_now
 
 
+# 1. Result models and warning classification.
 class Outcome(StrEnum):
     SUCCESS = "success"
+    WARNING = "warning"
     SKIPPED = "skipped"
     FAILED = "failed"
 
@@ -43,10 +45,22 @@ class ActionReport:
             item.outcome is not Outcome.FAILED for item in self.results
         )
 
+    @property
+    def has_warnings(self) -> bool:
+        return any(item.outcome == Outcome.WARNING for item in self.results)
+
+    @property
+    def status(self) -> str:
+        if not self.ok:
+            return "Failed"
+        if self.has_warnings:
+            return "Success with warnings"
+        return "Success" if any(item.outcome == Outcome.SUCCESS for item in self.results) else "Skipped"
+
     def finish(self, page: Page | None = None) -> "ActionReport":
         if page is not None:
             self.final_url = page.url
-        self.finished_at = _now()
+        self.finished_at = lebanon_now().isoformat()
         return self
 
     def to_dict(self) -> dict[str, Any]:
@@ -55,6 +69,7 @@ class ActionReport:
         return data
 
 
+# 2. Explicit current and preserved workflow registries.
 Action = Callable[[Page, Settings], Awaitable[ActionReport]]
 
 
@@ -72,15 +87,11 @@ class _CandidateError(RuntimeError):
     pass
 
 
-def _now() -> str:
-    return lebanon_now().isoformat()
-
-
 def _register(*, writes_data: bool) -> Callable[[Action], Action]:
     def decorator(action: Action) -> Action:
         registry = (
             _OLD_ACTIONS
-            if action.__module__ == "backend.old_core_global_changes"
+            if action.__module__ == "Backend.old_core_global_changes"
             else _ACTIONS
         )
         if action.__name__ in registry:
@@ -92,18 +103,19 @@ def _register(*, writes_data: bool) -> Callable[[Action], Action]:
 
 
 def _new_report(action: str, page: Page) -> ActionReport:
-    return ActionReport(action=action, target_url=page.url, started_at=_now())
+    return ActionReport(action=action, target_url=page.url, started_at=lebanon_now().isoformat())
 
 
 def failed_action_report(action: str, url: str, message: str) -> ActionReport:
     """Create a report for a URL-level failure before an action can complete."""
-    report = ActionReport(action=action, target_url=url, started_at=_now())
+    report = ActionReport(action=action, target_url=url, started_at=lebanon_now().isoformat())
     report.results.append(
         CandidateResult(candidate="URL", outcome=Outcome.FAILED, message=message)
     )
     return report.finish()
 
 
+# 3. Preserved legacy element validation.
 async def _require_one(
     page: Page,
     locator: Locator,
@@ -140,8 +152,9 @@ async def _require_one(
         await page.wait_for_timeout(250)
 
 
+# 4. Workflow discovery and dispatch.
 def _registry(old: bool) -> dict[str, ActionDefinition]:
-    import_module("backend.old_core_global_changes" if old else "functions")
+    import_module("Backend.old_core_global_changes" if old else "Backend.workflows")
     return _OLD_ACTIONS if old else _ACTIONS
 
 

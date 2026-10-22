@@ -14,10 +14,11 @@ __pycache__/
 chrome-profile/
 
 # Runtime artifacts
-logs/
-backend/screenshots/
-inspections/
-reports/
+Artifacts/
+
+# Local project memory and Excel lock files
+Memory/airtable_memory.xlsx
+~$*.xlsx
 
 # Editors and operating systems
 .idea/

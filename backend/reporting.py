@@ -9,9 +9,9 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-from backend.airtable_actions import Outcome
-from backend.config import lebanon_now
-from backend.runner import AppActionExecution, RunSummary
+from Backend.airtable_actions import Outcome
+from Backend.config import artifact_path, lebanon_now
+from Backend.runner import AppActionExecution, RunSummary
 
 
 _NAVY = "17365D"
@@ -23,26 +23,19 @@ _WHITE = "FFFFFF"
 _BORDER = Side(style="thin", color="C9D3DD")
 
 
-def _execution_result(execution: AppActionExecution) -> str:
-    outcomes = [item.outcome for item in execution.report.results]
-    if not execution.report.ok:
-        return "Failed"
-    if Outcome.SUCCESS in outcomes:
-        return "Success"
-    return "Skipped"
-
-
+# 1. Readable status and diagnostic text.
 def _message(execution: AppActionExecution) -> str:
     return "\n".join(
         f"[{item.outcome.value.upper()}] {item.candidate}: {item.message}"
         for item in sorted(
-            execution.report.results, key=lambda item: item.outcome != Outcome.FAILED
+            execution.report.results,
+            key=lambda item: {Outcome.FAILED: 0, Outcome.WARNING: 1}.get(item.outcome, 2),
         )
     )
 
 
 def _failure_information(execution: AppActionExecution) -> str:
-    if _execution_result(execution) != "Failed":
+    if execution.report.ok:
         return ""
 
     information: list[str] = []
@@ -61,21 +54,53 @@ def _failure_information(execution: AppActionExecution) -> str:
     return "\n".join(information)
 
 
+# 2. Explicit non-failing interface warning summary.
+def _interface_warning_sheet(workbook: Workbook, summary: RunSummary) -> None:
+    rows = []
+    for execution in summary.executions:
+        for result in execution.report.results:
+            if not result.details.get("interface_publication_warning"):
+                continue
+
+            def downstream(candidate: str) -> str:
+                return next((f"{item.outcome.value.upper()}: {item.message}"
+                             for item in execution.report.results if item.candidate == candidate),
+                            "Not processed or verified.")
+
+            rows.append((execution.app.name, result.details["interface_error"],
+                         downstream("Master app library publication"), downstream("Installed base push"),
+                         execution.app.url))
+    if not rows:
+        return
+    sheet = workbook.create_sheet("Interface publish warnings")
+    sheet.append(("App continued after interface warning", "Interface publication warning",
+                  "Library publication", "Installed base push", "App URL"))
+    for row in rows:
+        sheet.append(row)
+    for cells in sheet:
+        for cell in cells:
+            cell.alignment = Alignment(vertical="top", wrap_text=True)
+            cell.border = Border(bottom=_BORDER)
+            if cell.row == 1:
+                cell.font = Font(bold=True, color=_WHITE)
+                cell.fill = PatternFill("solid", fgColor=_NAVY)
+    for column, width in enumerate((36, 68, 68, 68, 55), 1):
+        sheet.column_dimensions[get_column_letter(column)].width = width
+    sheet.freeze_panes = "A2"
+    sheet.auto_filter.ref = sheet.dimensions
+
+
+# 3. Formatted workbook and collision-safe output.
 def generate_excel_report(summary: RunSummary, output_dir: Path) -> Path:
     """Create exactly one formatted .xlsx workbook for this run."""
     output_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = lebanon_now().strftime("%m-%d__%H.%M")
     action_label = "multi-action" if len(summary.actions) > 1 else summary.actions[0]
     safe_action = "".join(
         character if character.isalnum() or character in "-_" else "-"
         for character in action_label
     ).strip("-")
-    report_path = output_dir / f"{safe_action}  -  {timestamp}.xlsx"
-    number = 2
-    while report_path.exists():
-        report_path = output_dir / f"{safe_action}  -  {timestamp} ({number}).xlsx"
-        number += 1
-    temporary_path = output_dir / f".{safe_action}  -  {timestamp}.tmp.xlsx"
+    report_path = artifact_path(output_dir, safe_action, ".xlsx")
+    temporary_path = report_path.with_name(f".{report_path.stem}.tmp.xlsx")
 
     workbook = Workbook()
     worksheet = workbook.active
@@ -101,10 +126,10 @@ def generate_excel_report(summary: RunSummary, output_dir: Path) -> Path:
     worksheet["D3"] = "Concurrency"
     worksheet["E3"] = summary.concurrency
     worksheet["A4"] = "Overall run result"
-    worksheet["B4"] = "SUCCESS" if summary.ok else "FAILED"
+    worksheet["B4"] = summary.status
     worksheet["B4"].font = Font(bold=True)
     worksheet["B4"].fill = PatternFill(
-        "solid", fgColor=_GREEN if summary.ok else _RED
+        "solid", fgColor=(_YELLOW if summary.has_warnings else _GREEN) if summary.ok else _RED
     )
     for cell_ref in ("A2", "D2", "A3", "D3", "A4"):
         worksheet[cell_ref].font = Font(bold=True, color=_NAVY)
@@ -127,11 +152,12 @@ def generate_excel_report(summary: RunSummary, output_dir: Path) -> Path:
 
     status_fills = {
         "Success": PatternFill("solid", fgColor=_GREEN),
+        "Success with warnings": PatternFill("solid", fgColor=_YELLOW),
         "Skipped": PatternFill("solid", fgColor=_YELLOW),
         "Failed": PatternFill("solid", fgColor=_RED),
     }
     for row_number, execution in enumerate(summary.executions, start=header_row + 1):
-        result = _execution_result(execution)
+        result = execution.report.status
         values = (
             execution.app.name,
             execution.action,
@@ -155,7 +181,7 @@ def generate_excel_report(summary: RunSummary, output_dir: Path) -> Path:
         result_cell.alignment = Alignment(horizontal="center", vertical="top")
         worksheet.cell(row=row_number, column=5).number_format = '0.00 "s"'
 
-    widths = (32, 40, 12, 68, 14, 68)
+    widths = (32, 40, 24, 68, 14, 68)
     for column, width in enumerate(widths, start=1):
         worksheet.column_dimensions[get_column_letter(column)].width = width
     worksheet.freeze_panes = "A6"
@@ -166,6 +192,7 @@ def generate_excel_report(summary: RunSummary, output_dir: Path) -> Path:
     worksheet.page_setup.fitToWidth = 1
     worksheet.print_title_rows = f"1:{header_row}"
 
+    _interface_warning_sheet(workbook, summary)
     workbook.save(temporary_path)
     temporary_path.replace(report_path)
     return report_path

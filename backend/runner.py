@@ -10,23 +10,20 @@ from pathlib import Path
 
 from playwright.async_api import Error as PlaywrightError, Page
 
-from backend.airtable_actions import (
+from Backend.airtable_actions import (
     ActionReport,
     action_writes_data,
     failed_action_report,
     run_action,
 )
-from backend.browser import AsyncBrowserSession, BrowserLaunchError, NavigationError
-from backend.config import lebanon_now, AppConfig, Settings
+from Backend.browser import AsyncBrowserSession, BrowserLaunchError, NavigationError
+from Backend.config import lebanon_now, AppConfig, Settings
 
 
 LOGGER = logging.getLogger(__name__)
 
 
-def _now() -> str:
-    return lebanon_now().isoformat()
-
-
+# 1. Execution records and shared result status.
 @dataclass(slots=True)
 class AppActionExecution:
     app: AppConfig
@@ -50,11 +47,20 @@ class RunSummary:
             execution.report.ok for execution in self.executions
         )
 
+    @property
+    def has_warnings(self) -> bool:
+        return any(execution.report.has_warnings for execution in self.executions)
+
+    @property
+    def status(self) -> str:
+        return ("SUCCESS WITH WARNINGS" if self.has_warnings else "SUCCESS") if self.ok else "FAILED"
+
     def finish(self) -> "RunSummary":
-        self.finished_at = _now()
+        self.finished_at = lebanon_now().isoformat()
         return self
 
 
+# 2. App scheduling and worker isolation.
 class ConcurrentRunner:
     """Run each app in one worker using its own page in a shared context.
 
@@ -84,12 +90,12 @@ class ConcurrentRunner:
         if len(actions) != len(set(actions)):
             raise ValueError("The same action cannot be requested twice in one run")
         for action in actions:
-            action_writes_data(action, old=self.old)  # Validate before Chrome launch.
+            action_writes_data(action, old=self.old)  # 3. Validate before Chrome launch.
 
         summary = RunSummary(
             actions=actions,
             concurrency=min(self.concurrency, len(self.apps)),
-            started_at=_now(),
+            started_at=lebanon_now().isoformat(),
         )
         if not self.apps:
             return summary.finish()
@@ -99,16 +105,7 @@ class ConcurrentRunner:
                 await self._run_workers(browser, actions, summary)
         except BrowserLaunchError as exc:
             LOGGER.exception("The shared Chrome session could not be started")
-            for app in self.apps:
-                for action in actions:
-                    summary.executions.append(
-                        AppActionExecution(
-                            app=app,
-                            action=action,
-                            report=failed_action_report(action, app.url, str(exc)),
-                            duration_seconds=0.0,
-                        )
-                    )
+            self._record_unprocessed(summary, self.apps, actions, str(exc))
 
         app_order = {app.name: index for index, app in enumerate(self.apps)}
         action_order = {action: index for index, action in enumerate(actions)}
@@ -116,6 +113,18 @@ class ConcurrentRunner:
             key=lambda item: (app_order[item.app.name], action_order[item.action])
         )
         return summary.finish()
+
+    # 4. Ensure interrupted jobs remain visible in the report.
+    @staticmethod
+    def _record_unprocessed(summary: RunSummary, apps: tuple[AppConfig, ...],
+                            actions: tuple[str, ...], message: str) -> None:
+        completed = {(execution.app.name, execution.action) for execution in summary.executions}
+        for app in apps:
+            for action in actions:
+                if (app.name, action) not in completed:
+                    summary.executions.append(AppActionExecution(
+                        app, action, failed_action_report(action, app.url, message), 0.0,
+                    ))
 
     async def _run_workers(
         self,
@@ -139,28 +148,11 @@ class ConcurrentRunner:
                     LOGGER.info("Worker %d started app %s", worker_number, app.name)
                     await self._run_app(browser, app, actions, summary)
                 except Exception:
-                    # A worker-level guard ensures an unexpected app failure cannot
+                    # 5. A worker-level guard ensures an unexpected app failure cannot
                     # cancel other workers or leave this app without report rows.
                     LOGGER.exception("Worker %d failed app %s", worker_number, app.name)
-                    existing = {
-                        item.action
-                        for item in summary.executions
-                        if item.app.name == app.name
-                    }
-                    for action in actions:
-                        if action not in existing:
-                            summary.executions.append(
-                                AppActionExecution(
-                                    app=app,
-                                    action=action,
-                                    report=failed_action_report(
-                                        action,
-                                        app.url,
-                                        "Unexpected worker failure; see terminal output.",
-                                    ),
-                                    duration_seconds=0.0,
-                                )
-                            )
+                    self._record_unprocessed(summary, (app,), actions,
+                                             "Unexpected worker failure; see terminal output.")
                 finally:
                     queue.task_done()
 
@@ -168,6 +160,7 @@ class ConcurrentRunner:
             *(worker(number) for number in range(1, worker_count + 1))
         )
 
+    # 6. Serialize actions within each app page.
     async def _run_app(
         self,
         browser: AsyncBrowserSession,
@@ -185,23 +178,8 @@ class ConcurrentRunner:
                 summary.executions.append(execution)
         except Exception:
             LOGGER.exception("Could not create or maintain a page for app %s", app.name)
-            completed = {
-                item.action for item in summary.executions if item.app.name == app.name
-            }
-            for action in actions:
-                if action not in completed:
-                    summary.executions.append(
-                        AppActionExecution(
-                            app=app,
-                            action=action,
-                            report=failed_action_report(
-                                action,
-                                app.url,
-                                "The app page failed; see terminal output.",
-                            ),
-                            duration_seconds=0.0,
-                        )
-                    )
+            self._record_unprocessed(summary, (app,), actions,
+                                     "The app page failed; see terminal output.")
         finally:
             if page is not None and not page.is_closed():
                 try:
@@ -209,6 +187,7 @@ class ConcurrentRunner:
                 except PlaywrightError:
                     LOGGER.exception("Could not close the page for app %s", app.name)
 
+    # 7. Navigate, execute, verify, and capture failures.
     async def _run_one(
         self,
         browser: AsyncBrowserSession,
@@ -220,6 +199,8 @@ class ConcurrentRunner:
         screenshot_path: Path | None = None
         LOGGER.info("Running %s for app %s", action, app.name)
         try:
+            page.set_default_timeout(self.settings.browser_timeout_ms)
+            page.set_default_navigation_timeout(self.settings.navigation_timeout_ms)
             await browser.navigate(page, app.url)
             report = await run_action(action, page, self.settings, old=self.old)
             report.target_url = app.url

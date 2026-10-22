@@ -24,10 +24,31 @@ from playwright.sync_api import (
     sync_playwright,
 )
 
-from backend.config import Settings, lebanon_now
+from Backend.config import Settings, lebanon_now
 
 
+# 1. Shared launch, context, and screenshot settings.
 LOGGER = logging.getLogger(__name__)
+_LAUNCH_ERROR = (
+    "Could not launch Google Chrome. Ensure Chrome is installed and no "
+    "other Chrome process is using this automation profile."
+)
+
+
+def _browser_options(settings: Settings) -> dict:
+    return dict(user_data_dir=settings.chrome_profile_dir, channel="chrome",
+                headless=settings.headless, slow_mo=settings.slow_mo_ms,
+                viewport=None, args=["--start-maximized"])
+
+
+def _configure_context(context: BrowserContext | AsyncBrowserContext, settings: Settings) -> None:
+    context.set_default_timeout(settings.browser_timeout_ms)
+    context.set_default_navigation_timeout(settings.navigation_timeout_ms)
+
+
+def _screenshot_path(settings: Settings, label: str) -> Path:
+    safe_label = re.sub(r"[^a-zA-Z0-9_-]+", "-", label).strip("-") or "failure"
+    return settings.screenshots_dir / f"{lebanon_now():%Y-%m-%d__%H-%M-%S}-{safe_label}.png"
 
 
 class BrowserLaunchError(RuntimeError):
@@ -38,6 +59,7 @@ class NavigationError(RuntimeError):
     """Raised when navigation does not reach a usable page."""
 
 
+# 2. Synchronous inspection session.
 class BrowserSession:
     """Own a Playwright instance and one persistent Chrome context."""
 
@@ -51,24 +73,13 @@ class BrowserSession:
         try:
             self._playwright = sync_playwright().start()
             self.context = self._playwright.chromium.launch_persistent_context(
-                user_data_dir=self.settings.chrome_profile_dir,
-                channel="chrome",
-                headless=self.settings.headless,
-                slow_mo=self.settings.slow_mo_ms,
-                viewport=None,
-                args=["--start-maximized"],
+                **_browser_options(self.settings),
             )
-            self.context.set_default_timeout(self.settings.browser_timeout_ms)
-            self.context.set_default_navigation_timeout(
-                self.settings.navigation_timeout_ms
-            )
+            _configure_context(self.context, self.settings)
             return self
         except PlaywrightError as exc:
             self.close()
-            raise BrowserLaunchError(
-                "Could not launch Google Chrome. Ensure Chrome is installed and no "
-                "other Chrome process is using this automation profile."
-            ) from exc
+            raise BrowserLaunchError(_LAUNCH_ERROR) from exc
 
     def __exit__(
         self,
@@ -100,9 +111,7 @@ class BrowserSession:
 
     def screenshot(self, page: Page, label: str) -> Path | None:
         """Capture a best-effort diagnostic screenshot without masking an error."""
-        safe_label = re.sub(r"[^a-zA-Z0-9_-]+", "-", label).strip("-") or "failure"
-        timestamp = lebanon_now().strftime("%Y-%m-%d__%H-%M-%S")
-        path = self.settings.screenshots_dir / f"{timestamp}-{safe_label}.png"
+        path = _screenshot_path(self.settings, label)
         try:
             page.screenshot(path=path, full_page=True)
         except (PlaywrightError, OSError):
@@ -124,6 +133,7 @@ class BrowserSession:
             self._playwright = None
 
 
+# 3. Concurrent workflow session.
 class AsyncBrowserSession:
     """Own one persistent Chrome context shared by concurrent async pages."""
 
@@ -137,24 +147,13 @@ class AsyncBrowserSession:
         try:
             self._playwright = await async_playwright().start()
             self.context = await self._playwright.chromium.launch_persistent_context(
-                user_data_dir=self.settings.chrome_profile_dir,
-                channel="chrome",
-                headless=self.settings.headless,
-                slow_mo=self.settings.slow_mo_ms,
-                viewport=None,
-                args=["--start-maximized"],
+                **_browser_options(self.settings),
             )
-            self.context.set_default_timeout(self.settings.browser_timeout_ms)
-            self.context.set_default_navigation_timeout(
-                self.settings.navigation_timeout_ms
-            )
+            _configure_context(self.context, self.settings)
             return self
         except (AsyncPlaywrightError, OSError) as exc:
             await self.close()
-            raise BrowserLaunchError(
-                "Could not launch Google Chrome. Ensure Chrome is installed and no "
-                "other Chrome process is using this automation profile."
-            ) from exc
+            raise BrowserLaunchError(_LAUNCH_ERROR) from exc
 
     async def __aexit__(self, exc_type: object, exc: object, traceback: object) -> None:
         await self.close()
@@ -177,9 +176,7 @@ class AsyncBrowserSession:
 
     async def screenshot(self, page: AsyncPage, label: str) -> Path | None:
         """Capture a best-effort diagnostic screenshot for an async job."""
-        safe_label = re.sub(r"[^a-zA-Z0-9_-]+", "-", label).strip("-") or "failure"
-        timestamp = lebanon_now().strftime("%Y-%m-%d__%H-%M-%S")
-        path = self.settings.screenshots_dir / f"{timestamp}-{safe_label}.png"
+        path = _screenshot_path(self.settings, label)
         try:
             await page.screenshot(path=path, full_page=True)
         except (AsyncPlaywrightError, OSError):

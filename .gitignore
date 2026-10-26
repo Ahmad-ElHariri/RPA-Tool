@@ -1,0 +1,27 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local environment and secrets
+.env
+.env.*
+
+# Persistent browser/session data
+chrome-profile/
+
+# Runtime artifacts
+Artifacts/
+
+# Local project memory and Excel lock files
+Memory/airtable_memory.xlsx
+~$*.xlsx
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

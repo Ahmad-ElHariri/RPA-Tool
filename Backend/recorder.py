@@ -17,7 +17,7 @@ _BINDING = "__rpaSaveClick"
 LOGGER = logging.getLogger(__name__)
 
 
-# 1. Inspection file naming.
+# 1. Recording file naming.
 def _path(output_dir: Path, app: str, label: str) -> Path:
     def slug(value: str) -> str:
         return re.sub(r"[^a-zA-Z0-9_-]+", "-", value).strip("-_")[:80] or "page"

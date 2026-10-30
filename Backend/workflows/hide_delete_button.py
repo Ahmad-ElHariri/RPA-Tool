@@ -29,7 +29,7 @@ _DELETE_BUTTON_VALUE = "Pre-Briefing"
 
 
 async def _open_delete_button_settings(page: Page, timeout_ms: int) -> bool:
-    """Open the inspected record-details page and select Delete Line Item."""
+    """Open the recorded record-details page and select Delete Line Item."""
     await page.locator('header[data-testid="appTopbar"]').wait_for(
         timeout=timeout_ms
     )

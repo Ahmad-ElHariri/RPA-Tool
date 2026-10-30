@@ -1,4 +1,4 @@
-"""Remove the single Adsets Metrics sync source through the inspected menus.
+"""Remove the single Adsets Metrics sync source through the recorded menus.
 
 User contract for this workflow only: multiple sources fail. Always attempt the
 recorded removal path; do not infer sync state or skip. Submit Remove once,
@@ -138,7 +138,7 @@ async def unsync_adsets_metrics(page: Page, settings: Settings) -> ActionReport:
         details["actions"].append("Clicked Remove source")
         details["remaining_steps"].remove("remove source")
 
-        # The inspected confirmation has no dialog role: use its exact heading
+        # The recorded confirmation has no dialog role: use its exact heading
         # and retained-data explanation to scope the final Remove control.
         details["stage"] = "removal confirmation"
         heading = await _one(page, page.get_by_text(_CONVERSION, exact=True), "convert-to-unsynced confirmation", timeout_ms, enabled=False)

@@ -1,4 +1,4 @@
-"""Visibility configuration for the inspected Activation QA fields."""
+"""Visibility configuration for the recorded Activation QA fields."""
 
 from __future__ import annotations
 
@@ -158,7 +158,7 @@ async def _apply_activation_qa_visibility(
     if count > 1:
         raise _CandidateError(
             f"{field_name!r} has {count} visibility conditions; expected zero "
-            "or the single inspected Name condition."
+            "or the single recorded Name condition."
         )
     if count == 1:
         row = rows
@@ -234,7 +234,7 @@ async def _validate_activation_qa_visibility(
 
 # 3. Workflow entry point.
 async def configure_activation_qa_visibility(page: Page, settings: Settings) -> ActionReport:
-    """Add the inspected Name is xzx rule to four Activation QA fields."""
+    """Add the recorded Name is xzx rule to four Activation QA fields."""
     action_name = 'configure_activation_qa_visibility'
     report = _new_report(action_name, page)
     timeout_ms = settings.browser_timeout_ms

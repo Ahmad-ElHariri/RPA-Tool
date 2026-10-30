@@ -47,7 +47,7 @@ def readable_event(line: str) -> tuple[str, str] | None:
     if message.startswith("Recorder ready."):
         return "Chrome is ready. Perform the workflow, then close Chrome to save.", ""
     if message.startswith("Recording complete:"):
-        return "Inspection saved. Use Open inspection to review it.", "file"
+        return "Recording saved. Use Open recording to review it.", "file"
     if message.startswith("Running ") and " for app " in message:
         return f"Working on {message.split(' for app ', 1)[1]}.", ""
     if message.startswith("Finished ") and " for app " in message:
@@ -67,14 +67,14 @@ def load_inventory(group: str) -> tuple[AppConfig, ...]:
 
 
 def build_arguments(mode: str, function: str, url: str, app_names: tuple[str, ...]) -> list[str]:
-    if mode == "Inspect":
+    if mode == "Record Workflow":
         if url:
             if app_names:
                 raise ValueError("Choose a saved app or paste a URL, rather than both.")
-            return ["inspect", "--url", _validate_airtable_url(url, "Inspection URL")]
+            return ["record", "--url", _validate_airtable_url(url, "Recording URL")]
         if len(app_names) != 1:
-            raise ValueError("Choose one app to inspect, or switch to Paste URL.")
-        return ["inspect", "--app", app_names[0]]
+            raise ValueError("Choose one app to record, or switch to Paste URL.")
+        return ["record", "--app", app_names[0]]
     if mode != "Run" or function not in list_actions():
         raise ValueError("Choose a registered function to run.")
     if not app_names:
@@ -184,15 +184,15 @@ class Launcher:
         self.launcher_log = configure_logging(self.settings, label="launcher")
         self.events, self.busy, self.warnings = queue.Queue(), False, False
         self.started = None
-        self.mode = tk.StringVar(value="Inspect")
+        self.mode = tk.StringVar(value="Record Workflow")
         self.source = tk.StringVar(value="Saved app")
         self.inventory = tk.StringVar(value=APP_GROUPS[0])
         self.function, self.url = tk.StringVar(), tk.StringVar()
         self.status, self.selection_count = tk.StringVar(value="Ready"), tk.StringVar()
-        self.inspect_count = tk.StringVar(value="Choose one app")
+        self.recording_count = tk.StringVar(value="Choose one app")
         self.last_event = None
         self.apps: tuple[AppConfig, ...] = ()
-        self.artifacts = dict(inspection=None, report=None, log=self.launcher_log)
+        self.artifacts = dict(recording=None, report=None, log=self.launcher_log)
         self.fields, self.controls, self.artifact_buttons = {}, [], {}
         window.title("Airtable RPA")
         window.geometry("1060x790")
@@ -219,7 +219,7 @@ class Launcher:
             "TCombobox": dict(padding=8, fieldbackground="#f7f9fc", background="#eaf0f6",
                               bordercolor="#dbe4ee", lightcolor="#dbe4ee", darkcolor="#dbe4ee", arrowcolor=ACCENT),
             "TButton": dict(padding=(13, 8), background="#edf3f7", foreground=INK, borderwidth=0),
-            "Inspect.TButton": dict(padding=(24, 11), background=ACCENT,
+            "RecordWorkflow.TButton": dict(padding=(24, 11), background=ACCENT,
                                     foreground="white", font=("Segoe UI", 10, "bold")),
             "Run.TButton": dict(padding=(24, 11), background=RUN,
                                     foreground="white", font=("Segoe UI", 10, "bold")),
@@ -237,10 +237,10 @@ class Launcher:
         })])
         style.map("Pill.TRadiobutton", background=[("selected", "#dce9f4"), ("active", "#e4edf6")],
                   foreground=[("selected", INK)])
-        for name, color, tint in (("Inspect", ACCENT, "#dceff1"), ("Run", RUN, "#e8e4f8")):
+        for name, color, tint in (("RecordWorkflow", ACCENT, "#dceff1"), ("Run", RUN, "#e8e4f8")):
             style.map(f"{name}.Pill.TRadiobutton", background=[("selected", tint)],
                       foreground=[("selected", color)])
-        for name, color in (("Inspect.TButton", "#066673"), ("Run.TButton", "#50439f")):
+        for name, color in (("RecordWorkflow.TButton", "#066673"), ("Run.TButton", "#50439f")):
             style.map(name, background=[("disabled", "#ccd5e2"), ("active", color)],
                       foreground=[("disabled", "#6b7c91")])
         style.map("Treeview", background=[("selected", "#d9f0f2")], foreground=[("selected", "#075966")])
@@ -258,8 +258,9 @@ class Launcher:
 
     def _choices(self, parent, variable, values):
         for value in values:
+            style = value.replace(" ", "") + ".Pill.TRadiobutton" if variable is self.mode else "Pill.TRadiobutton"
             button = ttk.Radiobutton(parent, text=value, value=value, variable=variable,
-                                     style=f"{value}.Pill.TRadiobutton" if variable is self.mode else "Pill.TRadiobutton",
+                                     style=style,
                                      command=self.refresh)
             button.pack(side="left", padx=(0, 5))
             self.controls.append((button, "normal"))
@@ -283,8 +284,8 @@ class Launcher:
         card.columnconfigure(0, weight=1)
         modes = ttk.Frame(card, style="Card.TFrame")
         modes.grid(row=0, column=0, sticky="ew", pady=(0, 8))
-        self._choices(modes, self.mode, ("Inspect", "Run"))
-        self.button = ttk.Button(modes, command=self.start, style="Inspect.TButton")
+        self._choices(modes, self.mode, ("Record Workflow", "Run"))
+        self.button = ttk.Button(modes, command=self.start, style="RecordWorkflow.TButton")
         self.button.pack(side="right")
         functions = launcher_actions()
         field = self._field(card, "function", "Function", 1)
@@ -292,7 +293,7 @@ class Launcher:
         self.function_box.grid(row=0, column=1, sticky="w")
         if functions:
             self.function.set(min(functions))
-        field = self._field(card, "source", "Inspect from", 2)
+        field = self._field(card, "source", "Record from", 2)
         choices = ttk.Frame(field, style="Card.TFrame")
         choices.grid(row=0, column=1, sticky="w")
         self._choices(choices, self.source, ("Saved app", "Paste URL"))
@@ -300,7 +301,7 @@ class Launcher:
         self.inventory_box = ttk.Combobox(field, textvariable=self.inventory, values=APP_GROUPS, state="readonly")
         self.inventory_box.grid(row=0, column=1, sticky="ew")
         self.inventory_box.bind("<<ComboboxSelected>>", self.reload_apps)
-        self.inspect_tree = self._app_picker(card, "inspect_apps", "App to inspect", 4, single=True)
+        self.recording_tree = self._app_picker(card, "recording_apps", "App to record", 4, single=True)
         field = self._field(card, "url", "Airtable URL", 5)
         self.url_entry = ttk.Entry(field, textvariable=self.url)
         self.url_entry.grid(row=0, column=1, sticky="ew")
@@ -310,7 +311,7 @@ class Launcher:
         self._activity(body)
         links = ttk.Frame(body, padding=(0, 12))
         links.grid(row=3, column=0, sticky="new")
-        for kind, label in (("inspection", "Open inspection"), ("report", "Open report"), ("log", "Open log")):
+        for kind, label in (("recording", "Open recording"), ("report", "Open report"), ("log", "Open log")):
             button = ttk.Button(links, text=label, command=lambda key=kind: self.open_artifact(key))
             button.pack(side="left", padx=(0, 8))
             self.artifact_buttons[kind] = button
@@ -339,7 +340,7 @@ class Launcher:
             button = ttk.Button(tools, text=text, command=command)
             button.pack(side="left", padx=(0, 6))
             self.controls.append((button, "normal"))
-        ttk.Label(tools, textvariable=self.inspect_count if single else self.selection_count,
+        ttk.Label(tools, textvariable=self.recording_count if single else self.selection_count,
                   style="Muted.TLabel").pack(side="right")
         return tree
 
@@ -363,7 +364,7 @@ class Launcher:
             self.output.tag_configure(tag, foreground=color)
 
     def reload_apps(self, _event=None) -> None:
-        for tree in (self.apps_tree, self.inspect_tree):
+        for tree in (self.apps_tree, self.recording_tree):
             tree.delete(*tree.get_children())
         try:
             self.apps = load_inventory(self.inventory.get())
@@ -372,7 +373,7 @@ class Launcher:
             LOGGER.error("Could not load inventory: %s", exc)
             self.append(f"Inventory: {exc}\n")
         for app in self.apps:
-            for tree in (self.apps_tree, self.inspect_tree):
+            for tree in (self.apps_tree, self.recording_tree):
                 tree.insert("", "end", iid=app.name, values=(app.name, app.url))
         self.select_all_apps()
 
@@ -382,24 +383,24 @@ class Launcher:
 
     def _selection_changed(self, _event=None) -> None:
         self.selection_count.set(f"{len(self.apps_tree.selection())} / {len(self.apps)} selected")
-        self.inspect_count.set("1 app selected" if self.inspect_tree.selection() else "Choose one app")
+        self.recording_count.set("1 app selected" if self.recording_tree.selection() else "Choose one app")
 
     def selected_app_names(self) -> tuple[str, ...]:
         selected = self.apps_tree.selection()
         return tuple(app.name for app in self.apps if app.name in selected)
 
     def refresh(self) -> None:
-        inspect = self.mode.get() == "Inspect"
-        visible = ({"source", "inventory", "inspect_apps"} if self.source.get() == "Saved app"
-                   else {"source", "url"}) if inspect else {"function", "inventory", "apps"}
+        recording = self.mode.get() == "Record Workflow"
+        visible = ({"source", "inventory", "recording_apps"} if self.source.get() == "Saved app"
+                   else {"source", "url"}) if recording else {"function", "inventory", "apps"}
         for name, field in self.fields.items():
             field.grid() if name in visible else field.grid_remove()
         for control, state in self.controls:
             control.configure(state="disabled" if self.busy else state)
         self.apps_tree.configure(selectmode="none" if self.busy else "extended")
-        self.inspect_tree.configure(selectmode="none" if self.busy else "browse")
-        self.button.configure(text="Inspect page" if inspect else "Run workflow",
-                              style="Inspect.TButton" if inspect else "Run.TButton",
+        self.recording_tree.configure(selectmode="none" if self.busy else "browse")
+        self.button.configure(text="Record Workflow" if recording else "Run workflow",
+                              style="RecordWorkflow.TButton" if recording else "Run.TButton",
                               state="disabled" if self.busy else "normal")
         self.update_links()
 
@@ -413,23 +414,23 @@ class Launcher:
         if self.busy:
             return
         try:
-            inspect = self.mode.get() == "Inspect"
+            recording = self.mode.get() == "Record Workflow"
             url, names = self.url.get().strip(), self.selected_app_names()
-            if inspect and self.source.get() == "Saved app":
-                url, names = "", tuple(self.inspect_tree.selection())
-            elif inspect:
+            if recording and self.source.get() == "Saved app":
+                url, names = "", tuple(self.recording_tree.selection())
+            elif recording:
                 names = ()
             args = ["--apps-file", str(ROOT / APPS_FILE), "--apps-group", self.inventory.get(),
                     *build_arguments(self.mode.get(), self.function.get(), url, names)]
         except ValueError as exc:
             messagebox.showerror("Check your selection", str(exc), parent=self.window)
             return
-        self.artifacts = dict(inspection=None, report=None, log=self.launcher_log)
+        self.artifacts = dict(recording=None, report=None, log=self.launcher_log)
         self.busy, self.warnings, self.started = True, False, time.monotonic()
         self.last_event = None
-        self.indicator.start(ACCENT if inspect else RUN)
+        self.indicator.start(ACCENT if recording else RUN)
         self.status_label.configure(foreground=MUTED)
-        target = url if inspect and self.source.get() == "Paste URL" else (
+        target = url if recording and self.source.get() == "Paste URL" else (
             names[0] if len(names) == 1 else f"{len(names)} apps")
         self.append(f"\nStarting {self.mode.get().lower()}: {target}.\n")
         LOGGER.info("Starting operation: %s", args)
@@ -488,7 +489,7 @@ class Launcher:
     # 5. Open only announced artifacts inside their configured output directories.
     def track_artifact(self, line: str) -> None:
         for kind, marker, directory, suffix in (
-            ("inspection", "Inspection file: ", self.settings.inspections_dir, ".json"),
+            ("recording", "Recording file: ", self.settings.recordings_dir, ".json"),
             ("report", "Excel report: ", self.settings.reports_dir, ".xlsx"),
             ("log", "Log file: ", self.settings.logs_dir, ".log"),
         ):
@@ -515,7 +516,7 @@ class Launcher:
 
     def close(self) -> None:
         if self.busy:
-            messagebox.showinfo("Operation active", "Finish the active operation first. Close the automation Chrome window to finish inspection.", parent=self.window)
+            messagebox.showinfo("Operation active", "Finish the active operation first. Close the automation Chrome window to finish recording.", parent=self.window)
         else:
             self.indicator.stop()
             self.window.destroy()

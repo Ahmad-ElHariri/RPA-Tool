@@ -30,7 +30,8 @@ HEADERS = {
     "Failures & fixes": ("ID", "Topic", "Scope", "Symptom", "Cause", "Fix", "Verification", "Related functions", "Evidence IDs", "Status", "Verified at", "Updated", "Notes", "Code snapshot"),
     "Evidence": ("ID", "Kind", "Source", "Scope", "Observed result", "Observed at", "Limitation", "Related functions"),
 }
-STATUSES = ("Code observed", "Inspection observed", "Conversation reported", "Investigating", "Live verified", "Needs revalidation")
+# Retain the former status so historical rows and user notes remain valid.
+STATUSES = ("Code observed", "Recording observed", "Inspection observed", "Conversation reported", "Investigating", "Live verified", "Needs revalidation")
 FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef)
 
 
@@ -139,6 +140,7 @@ FUNCTION_MOVES = {
 
 # Precise locations preserve IDs when functions from several sources share a file.
 FUNCTION_RELOCATIONS = {
+    ("Backend/cli.py", "_record_workflow"): "main.py::_open_and_inspect",
     ("Backend/helpers.py", "ActionReport.ok"): "backend/airtable_actions.py::ActionReport.ok",
     ("Backend/helpers.py", "ActionReport.has_warnings"): "backend/airtable_actions.py::ActionReport.has_warnings",
     ("Backend/helpers.py", "ActionReport.status"): "backend/airtable_actions.py::ActionReport.status",
@@ -441,7 +443,7 @@ def save_records(path: Path, records, expected_hash=None):
         ("Manual review", "Use filters and wrapped cells. Keep IDs and column names stable. Close Excel before a tool update. Tool saves rebuild managed-sheet styling; extra user sheets and allowed notes survive."),
         ("Update safety", "Atomic replacement protects the existing workbook if saving fails. Other sheets and manual notes are preserved. No automatic history deletion."),
         ("History coverage", "Current source and surviving local artifacts are catalogued. Deleted trials cannot be recreated. Initial records identify their source and limitations."),
-        ("Authority", "Memory is a research aid. New user instructions, current inspection and verified live state take precedence; memory does not authorize writes, retries or targets."),
+        ("Authority", "Memory is a research aid. New user instructions, current recording and verified live state take precedence; memory does not authorize writes, retries or targets."),
     ):
         guide.append([name, explanation])
     for row in guide:

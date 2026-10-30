@@ -1,4 +1,4 @@
-"""Suggestion Details visibility in the two inspected media-plan views."""
+"""Suggestion Details visibility in the two recorded media-plan views."""
 
 from __future__ import annotations
 
@@ -212,7 +212,7 @@ async def _suggestion_details_is_hidden(
 
 # 3. Workflow entry point.
 async def hide_suggestion_details(page: Page, settings: Settings) -> ActionReport:
-    """Hide Suggestion Details in both inspected Brief Details sections."""
+    """Hide Suggestion Details in both recorded Brief Details sections."""
     action_name = 'hide_suggestion_details'
     report = _new_report(action_name, page)
     timeout_ms = settings.browser_timeout_ms

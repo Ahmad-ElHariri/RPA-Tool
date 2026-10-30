@@ -478,7 +478,7 @@ async def _apply_button_visibility(
         return False
     if not _button_visibility_state(labels, final=False):
         raise _CandidateError(
-            "Change Activator visibility was neither the inspected two-condition "
+            "Change Activator visibility was neither the recorded two-condition "
             "state nor the exact final three-condition state."
         )
 
@@ -901,7 +901,7 @@ async def _configure_interface(
 
 # 3. Workflow entry point.
 async def configure_activation_assignment(page: Page, settings: Settings) -> ActionReport:
-    """Configure the inspected Activation interface and its two automations."""
+    """Configure the recorded Activation interface and its two automations."""
     action_name = 'configure_activation_assignment'
     report = _new_report(action_name, page)
     timeout_ms = settings.browser_timeout_ms

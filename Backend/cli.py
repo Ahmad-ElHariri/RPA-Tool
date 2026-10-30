@@ -1,4 +1,4 @@
-"""Command-line entry point for inspection and concurrent Airtable runs."""
+"""Command-line entry point for recording and concurrent Airtable runs."""
 
 from __future__ import annotations
 
@@ -45,23 +45,23 @@ def _positive_int(value: str) -> int:
 # 1. CLI arguments and explicit targets.
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Inspect Airtable interfaces and run safe concurrent actions."
+        description="Record Airtable workflows and run safe concurrent actions."
     )
     parser.add_argument("--verbose", action="store_true", help="Enable debug logging")
     parser.add_argument("--apps-file", type=Path, help="App inventory file (default: Apps.json)")
     parser.add_argument("--apps-group", choices=APP_GROUPS, help="Inventory group: plus or core")
     subcommands = parser.add_subparsers(dest="command", required=True)
 
-    inspect_command = subcommands.add_parser(
-        "inspect", help="Record the DOM structure of normal clicks"
+    record_command = subcommands.add_parser(
+        "record", help="Record a workflow using normal clicks"
     )
-    inspect_target = inspect_command.add_mutually_exclusive_group(required=True)
-    inspect_target.add_argument("--app", help="App name from the selected inventory")
-    inspect_target.add_argument("--url", help="Explicit Airtable URL")
-    inspect_command.add_argument(
+    record_target = record_command.add_mutually_exclusive_group(required=True)
+    record_target.add_argument("--app", help="App name from the selected inventory")
+    record_target.add_argument("--url", help="Explicit Airtable URL")
+    record_command.add_argument(
         "--label",
         default="page",
-        help="Task or step name included in inspection filenames",
+        help="Task or step name included in recording filenames",
     )
 
     def add_run_command(name: str, help_text: str) -> None:
@@ -88,7 +88,7 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-# 2. Target selection and normal-click inspection.
+# 2. Target selection and normal-click recording.
 def _select_apps(apps: tuple[AppConfig, ...], names: list[str] | None) -> tuple[AppConfig, ...]:
     if not names:
         return apps
@@ -103,7 +103,7 @@ def _select_apps(apps: tuple[AppConfig, ...], names: list[str] | None) -> tuple[
     return selected
 
 
-def _open_and_inspect(
+def _record_workflow(
     settings: Settings,
     apps: tuple[AppConfig, ...],
     app_name: str | None,
@@ -111,14 +111,14 @@ def _open_and_inspect(
     label: str = "page",
 ) -> int:
     if explicit_url:
-        target_url = _validate_airtable_url(explicit_url, "Inspection URL")
+        target_url = _validate_airtable_url(explicit_url, "Recording URL")
     elif app_name:
         target_url = _select_apps(apps, [app_name])[0].url
     else:
-        raise ValueError("Choose one named app or provide an explicit inspection URL.")
+        raise ValueError("Choose one named app or provide an explicit recording URL.")
     matching_app = next((app for app in apps if app.url == target_url), None)
     base_id = re.search(r"/(app[A-Za-z0-9]+)", target_url)
-    inspection_name = (
+    recording_name = (
         matching_app.name
         if matching_app
         else base_id.group(1)
@@ -127,10 +127,10 @@ def _open_and_inspect(
     )
     with BrowserSession(settings) as browser:
         assert browser.context is not None
-        recorder = ClickRecorder(settings.inspections_dir, inspection_name, label)
+        recorder = ClickRecorder(settings.recordings_dir, recording_name, label)
         install_recorder(browser.context, recorder)
         page = browser.navigate(target_url)
-        LOGGER.info("Inspection file: %s", recorder.path)
+        LOGGER.info("Recording file: %s", recorder.path)
         try:
             wait_for_recording(page)
         except KeyboardInterrupt:
@@ -181,8 +181,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "list-apps":
             print("\n".join(app.name for app in apps))
             return 0
-        if args.command == "inspect":
-            return _open_and_inspect(settings, apps, args.app, args.url, args.label)
+        if args.command == "record":
+            return _record_workflow(settings, apps, args.app, args.url, args.label)
         if args.command == "run":
             selected_apps = (
                 (AppConfig(name="URL trial", url=_validate_airtable_url(args.url, "Run URL")),)

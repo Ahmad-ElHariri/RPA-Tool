@@ -7,11 +7,11 @@ workflow-specific requirements beside their implementation and in project memory
 
 ## 1. Roles, scope, and evidence
 
-- The user performs inspections: they open Inspect, demonstrate the complete
+- The user records workflows: they open Record Workflow, demonstrate the complete
   workflow with normal clicks, and close the automation Chrome window.
 - Codex reviews the user's saved recording and requirements, implements the
   automation, and validates only the targets and operations already authorized.
-  Codex must not perform or invent the user's inspection. Launch the recorder
+  Codex must not perform or invent the user's recording. Launch the recorder
   on the user's behalf only when explicitly requested.
 - Existing code, fixtures, documentation, memory, and observed defaults provide
   context; they do not authorize targets, writes, retries, recovery, or deletion.
@@ -23,7 +23,7 @@ workflow-specific requirements beside their implementation and in project memory
 
 ## 2. Project map and local commands
 
-- `Airtable_RPA.pyw`: desktop Inspect/Run application.
+- `Airtable_RPA.pyw`: desktop Record Workflow/Run application.
 - `Backend/cli.py`: CLI parsing and dispatch; run it as `python -B -m Backend.cli`.
 - Both `Backend/__init__.py` and `Backend/workflows/__init__.py` are empty package markers.
 - `Backend/workflows/`: one module per workflow, with its task-specific controls.
@@ -40,7 +40,7 @@ workflow-specific requirements beside their implementation and in project memory
 - `Apps.json`: separate `plus` (default) and `core` inventories. Keep their names,
   URLs, ordering, selection behavior, and configured overrides intact.
 - `Memory/`: the searchable Excel history and its maintenance tool.
-- `Artifacts/`: local inspections, reports, logs, and failure screenshots.
+- `Artifacts/`: local recordings, reports, logs, and failure screenshots.
 - `chrome-profile/`: the user's persistent local login/session; preserve it.
 
 ```powershell
@@ -58,8 +58,9 @@ within the authorized task.
 ## 3. Read recordings before implementing workflows
 
 - Search memory first, then read the complete relevant JSON recording in
-  `Artifacts/inspections/` in click order. A recording demonstrates steps;
-  its example values do not restrict other apps or authorize extra behavior.
+  `Artifacts/recordings/` (or historical `Artifacts/inspections/`) in click order.
+  A recording demonstrates steps; its example values do not restrict other apps
+  or authorize extra behavior.
 - Use actionable elements, regions, ancestors, pointer stacks, frames, state,
   and post-click overlays to construct semantic Playwright locators. Screenshots
   provide context rather than selectors. There is no ALT-click or snapshot mode.
@@ -87,7 +88,7 @@ within the authorized task.
 - Preserve each workflow's timeout and waiting semantics, selected targets,
   retry rules, submission counts, and warning/failure classification. Consult its
   implementation contract and evidence rather than generalizing an exception.
-- A new workflow requires the user's inspection, implementation, an authorized
+- A new workflow requires the user's recording, implementation, an authorized
   live trial, review/correction, and verified final state. Restate the operation
   before a write trial and use one explicitly authorized app or URL. Review its
   report and failure screenshot before broader runs.
@@ -109,13 +110,14 @@ within the authorized task.
   link diagnostics in reports, and capture a failure screenshot when possible.
 - Preserve workflow-specific non-failing warnings and downstream outcomes.
   These future-workflow requirements do not request retrofitting existing flows.
-- Inspect requires an explicit URL or one explicitly selected saved app. Never
-  choose the first app automatically or introduce a workflow selector for Inspect.
+- Record Workflow requires an explicit URL or one explicitly selected saved app.
+  Never choose the first app automatically or introduce a workflow selector for
+  Record Workflow.
   Run keeps app/URL columns and defaults to selecting all entries in its inventory.
 - Keep the desktop Logs panel concise while retaining original full diagnostics
   in saved logs. Filtering must not change results or artifact discovery. Artifact
   buttons must follow files announced by the current operation.
-- Use the central Lebanon time utility consistently. Inspection, report, and log
+- Use the central Lebanon time utility consistently. Recording, report, and log
   filenames use `<descriptive-name>  -  MM-DD__HH.MM` with numbered collisions.
   Preserve the existing failure-screenshot naming format.
 
@@ -123,10 +125,10 @@ within the authorized task.
 
 - Before new features, refactors, or workflow corrections, search
   `Memory/airtable_memory.xlsx` using the memory tool. Follow relevant IDs with
-  `show`, inspect exact callers and linked evidence, and try alternative terms.
+  `show`, review exact callers and linked evidence, and try alternative terms.
   A top search match is not proof that an old cause applies.
 - Compare reused patterns with current scope and DOM evidence. Distinguish source
-  review, inspection evidence, local checks, and live verification. A successful
+  review, recording evidence, local checks, and live verification. A successful
   skip path does not verify a write path; unchanged code does not prove an unchanged UI.
 - After code changes, refresh the catalogue while preserving notes and history.
   Record investigated symptoms, uncertain or confirmed causes, fixes, scope, and

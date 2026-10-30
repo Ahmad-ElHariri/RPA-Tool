@@ -81,7 +81,7 @@ async def _open_assign_change_visibility(page: Page, timeout_ms: int) -> Locator
     await _one(page, group, "Select Activator for Change Request group", timeout_ms)
     if await group.get_attribute("data-testid") != "selectedPageElement":
         # 9. Its center can hit a nested button. The group's own visibility marker
-        # bubbles a normal click to the inspected outer selection control.
+        # bubbles a normal click to the recorded outer selection control.
         marker = group.locator(
             ':scope > div > span > '
             '[data-testid="cell-editor-record-details-conditional-visibility-icon"]'
@@ -95,7 +95,7 @@ async def _open_assign_change_visibility(page: Page, timeout_ms: int) -> Locator
             "Change Request outer group selection",
             timeout_ms,
         )
-    # 10. The inspected click selects the editor wrapper around the disabled action.
+    # 10. The recorded click selects the editor wrapper around the disabled action.
     button = group.locator(
         '[data-testid="call-to-action-container"] [data-cta-button]:has('
         '[role="button"][aria-label="Assign Change Activator"]'
@@ -145,7 +145,7 @@ async def _apply_assign_change_visibility(page: Page, timeout_ms: int) -> bool:
     ) is None:
         raise _CandidateError(
             "Unexpected Assign Change Activator visibility; expected no conditions, "
-            "the final rule, or one unfinished inspected condition."
+            "the final rule, or one unfinished recorded condition."
         )
     row = await _one(page, rows, "single Assign Change Activator condition", timeout_ms)
     name = row.get_by_test_id("autocomplete-button").filter(has_text=re.compile(r"^Name$"))

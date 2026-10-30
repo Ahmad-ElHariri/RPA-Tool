@@ -92,7 +92,7 @@ async def _wait_for_smart_import_frame(page: Page, timeout_ms: int) -> Frame:
 def _smart_import_option_text_matches(
     text: str, field_name: str, field_type: str
 ) -> bool:
-    # Tolerate the mojibake form found in some inspection output, but compare the
+    # Tolerate the mojibake form found in some recording output, but compare the
     # complete normalized row so fields such as CPC and CPCV cannot be confused.
     normalized = " ".join(text.replace("Â·", "·").split())
     return normalized == f"{field_name} · {field_type}"
@@ -283,7 +283,7 @@ async def _ensure_inline_editing(
 
 
 async def smart_import_core(page: Page, settings: Settings) -> ActionReport:
-    """Run the inspected Smart Import CORE setup clicks in their captured order."""
+    """Run the recorded Smart Import CORE setup clicks in their captured order."""
     action_name = "smart_import_core"
     report = _new_report(action_name, page)
 

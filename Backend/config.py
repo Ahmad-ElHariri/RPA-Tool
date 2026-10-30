@@ -104,6 +104,7 @@ def _env_path(name: str, default: str) -> Path:
     previous = {
         "LOGS_DIR": "logs",
         "REPORTS_DIR": "reports",
+        "RECORDINGS_DIR": "recordings",
         "INSPECTIONS_DIR": "inspections",
         "SCREENSHOTS_DIR": "backend/screenshots",
     }
@@ -156,7 +157,7 @@ class Settings:
     apps_file: Path
     chrome_profile_dir: Path
     screenshots_dir: Path
-    inspections_dir: Path
+    recordings_dir: Path
     reports_dir: Path
     browser_timeout_ms: int
     navigation_timeout_ms: int
@@ -172,12 +173,18 @@ class Settings:
         apps_file, apps_group = resolve_apps_inventory(
             _env_path("APPS_FILE", APPS_FILE), os.getenv("APPS_GROUP")
         )
+        # Preserve configured output overrides under the former setting name.
+        recordings_key = (
+            "RECORDINGS_DIR"
+            if "RECORDINGS_DIR" in os.environ or "INSPECTIONS_DIR" not in os.environ
+            else "INSPECTIONS_DIR"
+        )
         settings = cls(
             apps_file=apps_file,
             apps_group=apps_group,
             chrome_profile_dir=_env_path("CHROME_PROFILE_DIR", "chrome-profile"),
             screenshots_dir=_env_path("SCREENSHOTS_DIR", "Artifacts/screenshots"),
-            inspections_dir=_env_path("INSPECTIONS_DIR", "Artifacts/inspections"),
+            recordings_dir=_env_path(recordings_key, "Artifacts/recordings"),
             reports_dir=_env_path("REPORTS_DIR", "Artifacts/reports"),
             logs_dir=_env_path("LOGS_DIR", "Artifacts/logs"),
             browser_timeout_ms=_env_positive_int("BROWSER_TIMEOUT_MS", 15_000),
@@ -199,7 +206,7 @@ class Settings:
         for directory in (
             self.chrome_profile_dir,
             self.screenshots_dir,
-            self.inspections_dir,
+            self.recordings_dir,
             self.reports_dir,
             self.logs_dir,
         ):

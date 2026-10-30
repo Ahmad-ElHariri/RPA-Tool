@@ -1023,7 +1023,7 @@ async def _configure_script_variable(
         if _text(await editor.inner_text()):
             raise _CandidateError(
                 "The script input has an unexpected non-empty value; refusing "
-                "to overwrite it without inspected removal clicks."
+                "to overwrite it without recorded removal clicks."
             )
         await editor.click(timeout=timeout_ms)
         plus = row.locator(
@@ -1105,7 +1105,7 @@ async def _ensure_script_action(
         timeout_ms,
     )
     # 15. Replacing the complete editor value prevents an existing action from
-    # retaining uninspected extra code.
+    # retaining unrecorded extra code.
     await _write_script(
         page,
         dialog,
@@ -1232,7 +1232,7 @@ async def _enable_reset_automation(page: Page, timeout_ms: int) -> bool:
         timeout_ms,
     )
     if await toggle.get_attribute("aria-checked") != "false":
-        raise _CandidateError("Reset automation toggle was not in the inspected OFF state.")
+        raise _CandidateError("Reset automation toggle was not in the recorded OFF state.")
     await toggle.click(timeout=timeout_ms)
 
     async def enabled() -> bool:

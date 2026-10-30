@@ -284,7 +284,7 @@ async def change_request_add_filter(
             report.results.append(CandidateResult(
                 candidate=f"Condition group {group_number}: {label}",
                 outcome=Outcome.SUCCESS,
-                message="Added the condition from the saved click inspection.",
+                message="Added the condition from the saved click recording.",
             ))
 
         if changed:

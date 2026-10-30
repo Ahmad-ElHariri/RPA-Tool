@@ -59,7 +59,7 @@ class NavigationError(RuntimeError):
     """Raised when navigation does not reach a usable page."""
 
 
-# 2. Synchronous inspection session.
+# 2. Synchronous recording session.
 class BrowserSession:
     """Own a Playwright instance and one persistent Chrome context."""
 

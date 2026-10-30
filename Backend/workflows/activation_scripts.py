@@ -29,7 +29,7 @@ async def _open_automations(page: Page, timeout_ms: int) -> None:
 
 
 async def configure_activation_automation_scripts(page: Page, settings: Settings) -> ActionReport:
-    """Configure the two inspected Activation button automations."""
+    """Configure the two recorded Activation button automations."""
     action_name = 'configure_activation_automation_scripts'
     report = _new_report(action_name, page)
     timeout_ms = settings.browser_timeout_ms

@@ -7,7 +7,7 @@ workflows, diagnostics, and Excel reports.
 ## 1. Project structure
 
 ```text
-Airtable_RPA.pyw                # Desktop Inspect/Run window
+Airtable_RPA.pyw                # Desktop Record Workflow/Run window
 Apps.json                      # Separate plus and core app arrays
 AGENTS.md                      # All project development rules; no separate skills
 Memory/airtable_memory.xlsx     # Local Excel catalogue, patterns, fixes, evidence
@@ -35,7 +35,7 @@ Backend/
         hide_suggested_metric.py
         hide_delete_button.py
 Artifacts/
-    inspections/               # Recorded clicks and DOM evidence
+    recordings/                # Recorded clicks and DOM evidence
     reports/                   # Excel run results
     logs/                      # Full diagnostic logs
     screenshots/               # Failure screenshots
@@ -46,8 +46,8 @@ chrome-profile/                # Local saved Chrome login/session
 control. `.env` and the memory workbook are also local. `AGENTS.md` is the single
 AI Development Guide; its conventional filename enables
 automatic discovery. It contains roles, evidence rules, repository conventions,
-verification, reporting, memory, and data protection. The user performs and records
-inspections; Codex reviews the recordings and implements the automation. Detailed
+verification, reporting, memory, and data protection. The user records complete
+workflows; Codex reviews the recordings and implements the automation. Detailed
 workflow contracts live beside their implementation and in memory. No separate
 skills or documentation folders are needed.
 
@@ -66,25 +66,25 @@ python -B Airtable_RPA.pyw
 ```
 
 The launcher uses built-in Tkinter; no additional UI packages are needed.
-For the first Airtable login, start an inspection, sign in within the automation
+For the first Airtable login, start a recording, sign in within the automation
 Chrome window, and close that entire window. The session remains in
 `chrome-profile/`; never copy or share that folder.
 
-## 3. Inspect from a saved app or URL
+## 3. Record a workflow from a saved app or URL
 
-1. Select **Inspect**. There is no function selector in this view.
+1. Select **Record Workflow**. There is no function selector in this view.
 2. Choose **Saved app**, select `plus` or `core` from `Apps.json`, then choose
    exactly one row from the app/URL table. Nothing is chosen automatically.
 3. Alternatively, choose **Paste URL** and enter the exact Airtable page URL.
-4. Click **Inspect page** and perform the complete workflow with normal clicks,
+4. Click **Record Workflow** and perform the complete workflow with normal clicks,
    including intermediate selections that reveal later controls.
 5. After the final click has settled, close the automation Chrome window.
-6. Use **Open inspection** to review the saved JSON and **Open log** for diagnostics.
+6. Use **Open recording** to review the saved JSON and **Open log** for diagnostics.
 
 Recordings contain actionable elements, regions, ancestors, pointer stacks,
 frames, state, and post-click overlays. Read them in click order when building
 semantic Playwright locators. Screenshots provide context, not selectors.
-There is no ALT-click or snapshot inspection mode, and recordings are not
+There is no ALT-click or snapshot recording mode, and recordings are not
 automatically replayed workflows.
 
 ## 4. Run a workflow
@@ -184,7 +184,7 @@ Names and URLs must be unique within each inventory. The file format is:
 
 Settings such as `CONCURRENCY`, `HEADLESS`, and runtime directories are loaded
 through `Backend/config.py`. Outputs default to `Artifacts/logs/`,
-`Artifacts/reports/`, `Artifacts/inspections/`, and `Artifacts/screenshots/`.
+`Artifacts/reports/`, `Artifacts/recordings/`, and `Artifacts/screenshots/`.
 Existing overrides pointing to the former built-in locations resolve to the new
 folders; custom output paths remain supported. Do not add workflow
 timeouts, selection limits, or retry rules without explicit user instructions.
@@ -196,19 +196,24 @@ artifact paths. The launcher has its own log and also captures subprocess output
 including startup errors. **Open log** follows the current operation's announced
 log file; it falls back to the launcher log if startup fails before one is created.
 The shorter **Logs** panel shows readable milestones and warning/error notices.
-Full original output and tracebacks remain in the saved text logs. Inspect and
-Run use distinct teal and violet action buttons on rounded, frosted panels.
+Full original output and tracebacks remain in the saved text logs. Record Workflow
+and Run use distinct teal and violet action buttons on rounded, frosted panels.
 
-Logs, inspections, and reports use Lebanon timestamps:
+Logs, recordings, and reports use Lebanon timestamps:
 `<descriptive-name>  -  MM-DD__HH.MM`, with numbered suffixes on collisions.
 Failure screenshots retain their existing timestamp format.
 
 Logs are local diagnostics, not source files. No automatic retention or deletion
-policy is applied. Historical reports, inspections, and saved Chrome login data
+policy is applied. Historical reports, recordings, and saved Chrome login data
 are preserved unless deletion is explicitly requested. Never share them or
 commit them to source control. Runtime folders are recreated as needed after
 an explicitly requested cleanup. Preserve the saved Chrome login profile unless
 its deletion is specifically requested.
+
+Existing recordings in `Artifacts/inspections/` retain their original paths.
+New recordings use `Artifacts/recordings/`. Set `RECORDINGS_DIR` to override this
+location; the previous `INSPECTIONS_DIR` setting remains supported when
+`RECORDINGS_DIR` is unset.
 
 ## 8. Command-line operations
 
@@ -216,14 +221,14 @@ its deletion is specifically requested.
 python -B -m Backend.cli list-actions
 python -B -m Backend.cli list-apps
 python -B -m Backend.cli --apps-group core list-apps
-python -B -m Backend.cli inspect --url "https://airtable.com/app.../..." --label "task-name"
-python -B -m Backend.cli --apps-group core inspect --app "App name" --label "task-name"
+python -B -m Backend.cli record --url "https://airtable.com/app.../..." --label "task-name"
+python -B -m Backend.cli --apps-group core record --app "App name" --label "task-name"
 python -B -m Backend.cli --apps-file Apps.json --apps-group plus run push_master_apps --app "App name"
 python -B -m Backend.cli run function_name --url "https://airtable.com/app.../..."
 python -B -m Backend.cli run first_function second_function --url "https://airtable.com/app.../..."
 ```
 
-Inspection always requires an explicit app or URL. Add `--verbose` before the
+Recording always requires an explicit app or URL. Add `--verbose` before the
 subcommand to include debug logging. Every workflow uses the same normal commands:
 
 ```powershell
@@ -254,7 +259,7 @@ preserve live locators across rerenders, and reject ambiguous targets. Ask befor
 implementing any missing workflow requirement, timeout, recovery, or skip rule.
 Existing code and fixtures do not prove that behavior was authorized.
 
-New workflows require inspection, implementation, and a successful verified trial
+New workflows require recording, implementation, and a successful verified trial
 on one explicitly authorized target before broader runs. Check state before each
 change, report already-correct items when skipping is permitted, and verify the
 observable result of every action. Report each target's before state, actions or
@@ -285,7 +290,7 @@ package is required. Existing `openpyxl` handles reading and writing.
 - **Failures & fixes:** symptoms, confirmed or unproven causes, corrections and
   verification. Source-code safeguards are labelled Code observed, not claimed
   as reconstructed historical failures.
-- **Evidence:** references and concise findings from surviving inspections,
+- **Evidence:** references and concise findings from surviving recordings,
   reports, logs, source review and this project's conversation.
 
 ```powershell
@@ -308,7 +313,7 @@ They include local imported modules conservatively, so unrelated module changes
 can also trigger review. An unchanged fingerprint cannot detect Airtable changes.
 
 The assistant searches memory before workflow development, compares it with the
-new inspection, and records investigated failures and verified fixes afterward.
+new recording, and records investigated failures and verified fixes afterward.
 These are development steps, not an automatic background process. Old entries do
 not authorize a new operation. Historical trials without a source revision are
 labelled accordingly; current fingerprints start at import time.

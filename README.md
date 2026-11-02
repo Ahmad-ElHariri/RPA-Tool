@@ -142,6 +142,20 @@ Missing/ambiguous controls, unreadable full formula text, errors, or unexpected
 dialogs stop the workflow with diagnostics. Failed submissions are not retried.
 The CORE name does not select an inventory or authorize a target automatically.
 
+`alert_overspent` opens **Automations → Alert Activation and Planning if Spend
+diff. 25%-50%-80%** and adds **AND Campaign Status is Live** to each of its three
+conditional blocks. It preserves the original difference thresholds (< −0.25,
+< −0.5, < −0.8), their Pacing Alerts conditions (empty, 25%, 50%), and the existing
+automation actions. Exact three-condition blocks are verified and left unchanged.
+Unexpected conditions or existing unpublished changes stop the workflow before
+editing. Actions wait three seconds; the final **Update** is clicked once and
+followed by a six-second wait. All three conditions in every block are checked
+again after reload. Edits and submissions are not retried automatically.
+
+```powershell
+python -B -m Backend.cli --apps-group plus run alert_overspent --app "P&G" --concurrency 1
+```
+
 ## 5. Read warnings and push results
 
 `push_master_apps` attempts the recorded interface Publish → changed section →

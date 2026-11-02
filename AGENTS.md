@@ -80,6 +80,14 @@ within the authorized task.
 - Verify the observable result of each action before continuing. A successful
   click call or `domcontentloaded` does not establish the desired application state.
   Verify save completion and reload persistence where appropriate.
+- For `multiple_target_market_core` and every workflow added afterward, wait
+  three seconds after each action step or click, including navigation,
+  right-clicks, separate formula-clearing and replacement steps, Save, and final
+  confirmation. Apply the delay to verification actions too. A text-entry step
+  means the complete entry, not each character; read-only checks and polling
+  are not action steps. The delay is additional to state/readiness checks and
+  does not establish success. Preserve existing workflows' waiting behavior
+  unless the user explicitly requests changing them.
 - Reuse shared section validation for multi-item work. Validate the entire expected
   state and retry only unresolved items where retries are already authorized.
   Never blindly toggle, repeat a submission, or duplicate a partial write.

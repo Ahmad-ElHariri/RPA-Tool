@@ -34,6 +34,7 @@ Backend/
         remove_publicis_media_team_signature.py
         hide_suggested_metric.py
         hide_delete_button.py
+        multiple_target_market_core.py
 Artifacts/
     recordings/                # Recorded clicks and DOM evidence
     reports/                   # Excel run results
@@ -94,7 +95,7 @@ automatically replayed workflows.
    `change_request_add_filter` and `push_master_apps`. These six distinct entries
    update automatically as workflows are added. Dates come from saved edit
    history; unknown dates are labelled explicitly. Use the arrow keys and Enter
-   to select, or Esc to dismiss. All twelve workflows remain available in the CLI.
+   to select, or Esc to dismiss. All workflows remain available in the CLI.
 2. Select an **Inventory**: `plus` or `core`, both stored in `Apps.json`.
 3. Review the app names and URLs. All entries start selected. Use **Clear** and
    select one explicitly authorized app for a first write trial. Ctrl-click
@@ -126,6 +127,20 @@ stops. After final **Remove**, the workflow waits five seconds. By explicit user
 instruction for this function only, it performs no post-removal verification or
 reload. A completed run reports submission and the wait, with the final table
 state labelled **unverified**. Other workflows retain their verification rules.
+
+`multiple_target_market_core` opens **Media Plan**, clicks **Core Completion
+Status**, then right-clicks it and chooses **Edit field**. It replaces the formula
+with the exact supplied multiple-target-market formula, clicks **Save** and
+**Confirm change** once each, and verifies the full formula after reload without
+submitting again. An exact existing formula is skipped and reported. Every action
+has a three-second wait, including the normal click before the right-click.
+The same three-second action delay applies to workflows added afterward.
+Starting on an already-selected Media Plan tab is supported: its owned table
+menu is dismissed before accessing the grid. Formula entry uses the editor's
+paste operation so multiline text is preserved, followed by an exact read-back.
+Missing/ambiguous controls, unreadable full formula text, errors, or unexpected
+dialogs stop the workflow with diagnostics. Failed submissions are not retried.
+The CORE name does not select an inventory or authorize a target automatically.
 
 ## 5. Read warnings and push results
 
@@ -238,7 +253,7 @@ python -B -m Backend.cli run hide_suggested_metric --url "https://airtable.com/a
 
 ## 9. Maintain and validate
 
-Find the complete workflow catalogue in `Backend/helpers.py`. Each of the twelve
+Find the complete workflow catalogue in `Backend/helpers.py`. Each of the thirteen
 tasks has one file in `Backend/workflows/`, with a public async entry point named
 after its catalogue key and accepting `(page, settings)`. Task-specific controls
 and constants stay beside that task; controls reused across tasks, common result
@@ -253,6 +268,12 @@ dates sort after dated entries. The launcher calculates its four recent choices
 from the catalogue and always appends the two fixed choices without duplicates.
 Shared save/validation helpers with different waiting or retry behavior stay
 distinct. Use numbered comments for meaningful phases.
+
+Starting with `multiple_target_market_core`, every new workflow waits seven
+seconds after each action step or click, including right-clicks, text replacement,
+Save, confirmation, and verification actions. Text entry counts as a complete
+step, not individual characters. These delays supplement observable state checks;
+existing workflows retain their established timing. See `AGENTS.md` section 4.
 
 Follow **find → validate → act → verify → report**. Use recorded selectors,
 preserve live locators across rerenders, and reject ambiguous targets. Ask before

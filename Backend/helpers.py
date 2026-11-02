@@ -148,6 +148,7 @@ _ACTIONS: dict[str, ActionDefinition] = {
     "push_master_apps": ActionDefinition("Backend.workflows.push_master_apps", True, date(2026, 10, 13)),
     "Assign_Change_Activator": ActionDefinition("Backend.workflows.assign_change_activator", True, date(2026, 10, 15)),
     "unsync_adsets_metrics": ActionDefinition("Backend.workflows.adsets_metrics_sync", True, date(2026, 10, 23)),
+    "multiple_target_market_core": ActionDefinition("Backend.workflows.multiple_target_market_core", True, date(2026, 10, 30)),
 }
 _PINNED_ACTIONS = ("change_request_add_filter", "push_master_apps")
 

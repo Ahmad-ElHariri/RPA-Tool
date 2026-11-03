@@ -35,6 +35,7 @@ Backend/
         hide_suggested_metric.py
         hide_delete_button.py
         multiple_target_market_core.py
+        campaign_duration.py
 Artifacts/
     recordings/                # Recorded clicks and DOM evidence
     reports/                   # Excel run results
@@ -154,6 +155,19 @@ again after reload. Edits and submissions are not retried automatically.
 
 ```powershell
 python -B -m Backend.cli --apps-group plus run alert_overspent --app "P&G" --concurrency 1
+```
+
+`campaign_duration` updates **Campaign Duration**, then **Campaign Completion**
+in **Media Plan**, using the exact supplied formulas. Both existing Formula
+fields are read before any edits. Exact matches skip saving; changed fields are
+cleared, pasted, read back, saved and dependency-confirmed once. Each click and
+action waits three seconds. Both complete formulas are verified after reload,
+including skipped fields. The shared section validator runs without retries.
+A failure stops further field actions and reports partial work and diagnostics.
+Field names, types, formatting and record values are not edited directly.
+
+```powershell
+python -B -m Backend.cli --apps-group plus run campaign_duration --app "P&G" --concurrency 1
 ```
 
 ## 5. Read warnings and push results
